@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quét mã vạch - Cửa hàng</title>
+  <style>
+    :root{--bg:#f4f7fb;--card:#ffffff;--accent:#2b6ef6;--muted:#6b7280;--danger:#dc2626}
+    html,body{height:100%}
+    body{font-family:Inter, 'Segoe UI', Roboto, Arial, sans-serif;background:var(--bg);margin:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px}
+    .container{max-width:980px;width:100%;padding:8px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+    h1{font-size:1.15rem;margin:0;color:#0f172a}
+    p.lead{margin:6px 0 0;color:var(--muted);font-size:.95rem}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.06);padding:12px}
+    #videoWrap{width:100%;max-width:100%;border-radius:10px;overflow:hidden}
+    #video{width:100%;height:auto;display:block;aspect-ratio:16/9;background:#000}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;border:0;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;color:var(--muted);border:1px solid rgba(15,23,42,0.06)}
+    .btn.warn{background:var(--danger)}
+    .modes{display:flex;gap:12px;align-items:center;margin-top:12px}
+    #log{margin-top:10px;color:#0f172a}
+    #barcodeValue{font-weight:700;color:var(--accent)}
+    #product{display:flex;gap:16px;align-items:center;margin-top:12px}
+    #product img{width:140px;height:140px;object-fit:cover;border-radius:8px;border:1px solid #eef2f7}
+    #info{flex:1}
+    /* Price-check product name clamp: show up to 3 lines then ellipsis */
+    #productName{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;white-space:normal;-webkit-line-clamp:3}
+    #cartArea{margin-top:12px}
+    table{width:100%;border-collapse:collapse}
+    table th, table td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:left}
+    table thead th{color:var(--muted);font-weight:600;font-size:.9rem}
+    #cartTable tbody tr:hover{background:#fbfdff}
+    footer{margin-top:18px;font-size:.9rem;color:var(--muted)}
+    @media(min-width:720px){
+      .controls{justify-content:flex-start}
+    }
+    /* quantity controls inline + small button styles */
+    .qty-controls{display:flex;align-items:center;gap:8px;justify-content:center}
+    /* make qty buttons square and larger for easier tapping */
+    .qty-btn{width:44px;height:44px;border-radius:8px;border:1px solid #e6e9ef;background:#fff;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0}
+    .qty-controls span{min-width:32px;text-align:center;display:inline-block}
+    /* wrapper for qty buttons (keeps - value + inline) */
+    .qty-wrap{display:flex;align-items:center;gap:8px}
+    /* product thumbnail shown only on narrow screens; hidden on desktop */
+    .cart-thumb{display:none;border-radius:8px;object-fit:cover;border:1px solid #eef2f7}
+    .cart-thumb-cell{display:none}
+    /* left-label cells hidden by default (desktop) */
+    .left-label{display:none}
+    /* ensure product name is left-aligned */
+    #cartTable td .product-name{display:block;text-align:left}
+    /* Ensure table cells (headers and data) are vertically centered */
+    #cartTable th, #cartTable td{vertical-align:middle}
+    /* Make the quantity column a flex container so controls truly center vertically */
+    #cartTable thead th:nth-child(3),
+    #cartTable tbody td:nth-child(3){
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 8px;
+    }
+    /* Ensure qty controls occupy full cell height and buttons don't shift baseline */
+    #cartTable td .qty-controls{height:100%;min-height:40px}
+    .qty-btn{line-height:1;box-sizing:border-box}
+    /* product name: allow up to 2 lines, then ellipsis; prevent table overflow */
+    #cartTable{table-layout:fixed;width:100%}
+    #cartTable thead th, #cartTable tbody td{padding:10px 8px}
+    /* Adjusted column sizing: product | price | qty | total | actions */
+    /* Make product column smaller so price/qty/total have more room on mobile */
+    /* Reduced product column further per user request */
+    #cartTable thead th:nth-child(1), #cartTable tbody td:nth-child(1){width:32%}
+    #cartTable thead th:nth-child(2), #cartTable tbody td:nth-child(2){width:22%;text-align:center}
+    #cartTable thead th:nth-child(3), #cartTable tbody td:nth-child(3){width:16%;text-align:center}
+    #cartTable thead th:nth-child(4), #cartTable tbody td:nth-child(4){width:20%;text-align:center}
+    #cartTable thead th:nth-child(5), #cartTable tbody td:nth-child(5){width:10%;text-align:center}
+    /* Use data-label selectors for stable column widths (works even with hidden label TDs) */
+    #cartTable td[data-label="Sản phẩm"]{width:32%;text-align:left}
+    #cartTable td[data-label="Giá"]{width:22%;text-align:center}
+    #cartTable td[data-label="Số lượng"]{width:16%;text-align:center}
+    #cartTable td[data-label="Thành tiền"]{width:20%;text-align:center}
+    #cartTable td[data-label="Hành động"]{width:10%;text-align:center}
+    /* multiline clamp: show up to 2 lines then ... */
+    #cartTable td .product-name{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;white-space:normal;-webkit-line-clamp:2}
+    @media(min-width:720px){
+      /* desktop: give slightly more room for totals while keeping actions compact */
+      #cartTable thead th:nth-child(1), #cartTable tbody td:nth-child(1){width:28%}
+      #cartTable thead th:nth-child(2), #cartTable tbody td:nth-child(2){width:22%}
+      #cartTable thead th:nth-child(3), #cartTable tbody td:nth-child(3){width:14%}
+      #cartTable thead th:nth-child(4), #cartTable tbody td:nth-child(4){width:26%}
+      #cartTable thead th:nth-child(5), #cartTable tbody td:nth-child(5){width:10%}
+      /* data-label variants for consistent widths when hidden label cells exist */
+      #cartTable td[data-label="Sản phẩm"]{width:28%}
+      #cartTable td[data-label="Giá"]{width:22%}
+      #cartTable td[data-label="Số lượng"]{width:14%}
+      #cartTable td[data-label="Thành tiền"]{width:26%}
+      #cartTable td[data-label="Hành động"]{width:10%}
+      /* Ensure qty controls and value spans have minimum widths on desktop so they don't overlap */
+      #cartTable td[data-label="Số lượng"] .qty-controls{min-width:120px;justify-content:center}
+      /* Make the qty cell itself use flex so the qty-wrap stays horizontal */
+      #cartTable td[data-label="Số lượng"]{display:flex;align-items:center;justify-content:center}
+      /* Ensure monetary values have enough room; center them under headers on desktop */
+      #cartTable td[data-label="Giá"] .value,
+      #cartTable td[data-label="Thành tiền"] .value{min-width:100px;text-align:center;display:block;margin:0 auto}
+      /* Make qty buttons a little smaller on desktop while keeping them square */
+      @media(min-width:980px){
+        .qty-btn{width:40px;height:40px}
+      }
+
+      /* Force single-line product name on desktop so the row stays on a single line */
+      #cartTable td .product-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+      /* Ensure the product cell can shrink and clip long names instead of overlapping neighbors */
+      #cartTable td[data-label="Sản phẩm"]{overflow:hidden;min-width:0}
+      /* Keep values and controls inline and vertically centered */
+      #cartTable td .value{display:inline-block;white-space:nowrap;vertical-align:middle;text-align:center}
+      #cartTable td .qty-wrap{display:inline-flex;align-items:center;gap:8px;vertical-align:middle;margin:0 auto}
+      #cartTable td button{display:inline-flex;align-items:center;justify-content:center}
+    }
+    /* Mobile: make cart rows stack for narrow screens */
+    @media(max-width:600px){
+      #cartTable{border:0;width:100%}
+      #cartTable thead{display:none}
+      /* Each cart row becomes a card with clear layout */
+      #cartTable tbody tr{
+        display:block;
+        background:#fff;
+        border:1px solid #f1f5f9;
+        border-radius:8px;
+        margin-bottom:12px;
+        padding:12px;
+        width:100%;
+        box-sizing:border-box;
+      }
+      
+      /* Product section: thumbnail + name in a flex row */
+      #cartTable tbody td[data-label="Sản phẩm"]{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        margin-bottom:12px;
+        padding:0;
+        width:100%;
+      }
+      .cart-thumb{
+        display:block;
+        width:50px;
+        height:50px;
+        border-radius:6px;
+        object-fit:cover;
+        flex-shrink:0;
+      }
+      #cartTable tbody td[data-label="Sản phẩm"] .product-inner{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        width:100%;
+      }
+      #cartTable tbody td[data-label="Sản phẩm"] .product-name{
+        font-weight:600;
+        font-size:0.95rem;
+        line-height:1.3;
+        flex:1;
+        word-wrap:break-word;
+        overflow-wrap:break-word;
+      }
+      
+      /* Info rows: each as a flex row with label and value */
+      #cartTable tbody td[data-label="Giá"],
+      #cartTable tbody td[data-label="Số lượng"], 
+      #cartTable tbody td[data-label="Thành tiền"],
+      #cartTable tbody td[data-label="Hành động"]{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        padding:6px 0;
+        margin:0;
+        width:100%;
+        box-sizing:border-box;
+        border-bottom:1px solid #f8fafc;
+      }
+      
+      /* Labels */
+      #cartTable tbody td[data-label="Giá"]:before{content:"Giá:"}
+      #cartTable tbody td[data-label="Số lượng"]:before{content:"Số lượng:"}
+      #cartTable tbody td[data-label="Thành tiền"]:before{content:"Thành tiền:"}
+      #cartTable tbody td[data-label="Hành động"]:before{content:"Hành động:"}
+      
+      #cartTable tbody td[data-label]:before{
+        font-weight:600;
+        color:var(--muted);
+        flex-shrink:0;
+      }
+      
+      /* Values */
+      #cartTable tbody td[data-label] .value{
+        font-weight:500;
+        margin-left:auto;
+      }
+      #cartTable tbody td[data-label] .qty-wrap{
+        display:flex;
+        align-items:center;
+        gap:6px;
+        margin-left:auto;
+      }
+      #cartTable tbody td[data-label="Hành động"] button{
+        margin-left:auto;
+      }
+      
+      /* Hide product label */
+      #cartTable tbody td[data-label="Sản phẩm"]:before{display:none}
+      
+      /* Remove last border */
+      #cartTable tbody td[data-label="Hành động"]{border-bottom:none}
+      
+      /* Adjust button sizes for mobile */
+      .qty-btn{width:36px;height:36px;font-size:14px}
+    }
+    /* Payment modal (QR) */
+    #paymentModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:1000}
+    #paymentModal .card{max-width:360px;width:90%;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px}
+    #paymentQRCode{width:260px;height:260px;object-fit:contain;background:#fff;padding:8px;border-radius:8px;border:1px solid #e6e9ef}
+    #paymentAmount{font-size:1.1rem;font-weight:700;color:#0f172a}
+    #paymentModal .btn.ghost{background:transparent;color:var(--muted);border:1px solid rgba(15,23,42,0.06)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header style="margin-bottom:8px">
+      <h1>Cửa hàng Thúy Dưỡng</h1>
+      <p class="lead">Do Godun thử nghiệm và phát triển.</p>
+    </header>
+
+    <div class="card">
+      <div id="videoWrap">
+        <video id="video" autoplay muted playsinline></video>
+      </div>
+
+      <div class="controls" style="margin-top:10px">
+        <select id="videoSelect"></select>
+        <button id="startBtn" class="btn">Bắt đầu quét</button>
+        <button id="stopBtn" class="btn ghost" style="background:#666;color:#fff">Dừng</button>
+      </div>
+
+      <div class="modes">
+        <label><input type="radio" name="mode" value="price" id="modePrice" checked> Kiểm tra giá</label>
+        <label><input type="radio" name="mode" value="cart" id="modeCart"> Hóa đơn</label>
+      </div>
+
+      <div id="log">Mã quét: <span id="barcodeValue">(chưa có)</span></div>
+
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <input id="manualBarcode" placeholder="Nhập mã vạch." style="padding:8px;flex:1"> 
+        <button id="manualLookup" type="button" class="btn">Tra mã / Thêm vào hóa đơn</button>
+      </div>
+    </div>
+
+    <!-- Payment modal: shown when user clicks Thanh toán -->
+    <div id="paymentModal" aria-hidden="true">
+      <div class="card">
+        <h3 style="margin:0">Thanh toán</h3>
+        <img id="paymentQRCode" src="" alt="QR thanh toán" />
+        <div id="paymentAmount"></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="paymentCloseBtn" class="btn ghost">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cart UI (hidden unless cart mode) -->
+    <div id="cartArea" style="display:none;margin-top:12px">
+      <div class="card">
+        <h3 style="margin-top:0">Hóa đơn</h3>
+        <table id="cartTable">
+          <thead><tr><th style="text-align:left">Sản phẩm</th><th>Giá</th><th>Số lượng</th><th>Thành tiền</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Tổng:</strong> <span id="cartTotal">0</span></div>
+          <div>
+            <button id="clearCart" class="btn" style="background:#d9534f">Xóa</button>
+            <button id="checkout" class="btn" style="background:#2dbe60">Thanh toán</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="product" style="display:none;margin-top:12px">
+      <div class="card" style="display:flex;gap:12px;align-items:center">
+        <img id="productImage" src="" alt="Ảnh sản phẩm">
+        <div id="info">
+          <div id="productName" style="font-size:1.1rem;font-weight:600"></div>
+          <div id="productPrice" style="color:#1f6feb;font-size:1.1rem;margin-top:6px"></div>
+          <div id="productBarcode" style="margin-top:6px;color:#444"></div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="canvas" style="display:none"></canvas>
+
+    <script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
+    <script src="js/app.js"></script>
+  </div>
+</body>
+</html>

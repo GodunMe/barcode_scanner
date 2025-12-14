@@ -1,0 +1,28 @@
+{
+  "name": "spm_barcode_app",
+  "version": "1.0.0",
+  "description": "Barcode app with admin and lowdb backend",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "csurf": "^1.11.0",
+    "dotenv": "^16.1.4",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.8.0",
+    "express-session": "^1.17.3",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.0.0",
+    "lowdb": "^1.0.0",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "nanoid": "^4.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

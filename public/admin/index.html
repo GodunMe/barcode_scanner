@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin - SPM Barcode App</title>
+  <style>
+    :root{--bg:#f4f7fb;--card:#ffffff;--accent:#2b6ef6;--muted:#6b7280;--danger:#dc2626}
+    html,body{height:100%}
+    body{font-family:Inter, 'Segoe UI', Roboto, Arial, sans-serif;background:var(--bg);margin:0;display:flex;flex-direction:column;align-items:center;padding:18px}
+    .container{max-width:980px;width:100%;padding:8px}
+    h1{margin:0 0 8px}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.06);padding:12px;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #f1f5f9}
+    th{color:var(--muted);font-weight:600}
+    .btn{padding:8px 12px;background:var(--accent);color:#fff;border-radius:8px;border:0;cursor:pointer}
+    .btn.ghost{background:transparent;color:var(--muted);border:1px solid rgba(15,23,42,0.06)}
+    input[type=text], input, textarea{width:100%;padding:8px;border:1px solid #eef2f7;border-radius:8px}
+    #captureArea video, #scanArea video{width:100%;height:auto;border-radius:8px}
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+    /* collapsible card animation for add form (fade + slide) */
+    .collapsible{max-height:0;overflow:hidden;opacity:0;transform:translateY(-8px);transition:max-height .45s cubic-bezier(.2,.9,.2,1),opacity .28s ease,transform .36s cubic-bezier(.2,.9,.2,1)}
+    .collapsible.open{max-height:1400px;opacity:1;transform:none}
+    /* toast notifications */
+    .toast-wrap{position:fixed;right:16px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:1200}
+    .toast{background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(2,6,23,0.3);opacity:0;transform:translateY(8px);transition:opacity .22s ease,transform .26s ease}
+    .toast.show{opacity:1;transform:none}
+    .toast.success{background:linear-gradient(90deg,#16a34a,#059669)}
+    .toast.error{background:linear-gradient(90deg,#dc2626,#ef4444)}
+    /* inline field error styles */
+    .input-invalid{border-color:var(--danger) !important; box-shadow:0 0 0 3px rgba(220,38,38,0.06);}
+    .field-error{color:var(--danger);font-size:13px;margin-top:6px;display:none}
+    /* stacked-card layout for mobile with labels before values */
+    .table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    @media (max-width:720px){
+      .table-responsive{padding-bottom:6px}
+      /* render rows as cards */
+      .products-table{width:100%;border:0}
+      .products-table thead{display:none}
+      .products-table, .products-table tbody, .products-table tr, .products-table th, .products-table td{display:block;width:100%}
+      .products-table tr{margin:10px 0;padding:10px;background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
+      .products-table td{padding:6px 10px;border-bottom:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .products-table td img{max-width:72px;height:auto;border-radius:6px;flex:0 0 auto}
+      /* label before each value */
+      .products-table td:before{content:"";font-weight:600;color:var(--muted);margin-right:6px;flex:0 0 auto}
+      .products-table td:nth-child(1):before{content:"Ảnh:"}
+      .products-table td:nth-child(2):before{content:"Barcode:"}
+      .products-table td:nth-child(3):before{content:"Tên:"}
+      .products-table td:nth-child(4):before{content:"Giá:"}
+      .products-table td:nth-child(5):before{content:"Hành động:"}
+      /* clamp name to 2 lines */
+      .products-table td:nth-child(3), .products-table td:nth-child(3) *{white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;width:100%}
+      .products-table button{padding:6px 10px}
+    }
+  </style>
+  <meta name="referrer" content="no-referrer">
+</head>
+<body>
+  <h1>Trang quản trị</h1>
+
+  <div id="auth">
+    <h3>Đăng nhập</h3>
+    <form id="loginForm">
+      <label>Username<br><input id="username" required></label><br>
+      <label>Password<br><input id="password" type="password" required></label><br>
+      <button class="btn">Đăng nhập</button>
+    </form>
+    <div id="loginMsg" style="color:red;margin-top:8px"></div>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+    <p>
+      <button id="logoutBtn" class="btn">Đăng xuất</button>
+      <button id="toggleAddBtn" class="btn ghost" style="margin-left:8px">Thêm sản phẩm</button>
+    </p>
+
+    <!-- add form placed at top so it appears immediately; uses collapsible animation -->
+    <div id="addCard" class="card collapsible" style="margin-top:8px;position:relative">
+      <h4 id="formTitle">Thêm sản phẩm</h4>
+      <!-- small in-form camera preview (hidden until camera starts) -->
+      <div id="miniCap" style="display:none;position:absolute;right:12px;top:12px;width:120px;height:180px;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(2,6,23,0.08);background:#000; z-index: 1000">
+        <video id="miniVideo" autoplay playsinline muted style="width:100%;height:100%;display:block;object-fit:contain;aspect-ratio:9/16"></video>
+        <div style="position:absolute;bottom:6px;right:6px;display:flex;gap:6px">
+          <button id="miniTake" type="button" class="btn" style="padding:4px 8px;font-size:12px">Chụp</button>
+          <button id="miniStop" type="button" class="btn ghost" style="padding:4px 8px;font-size:12px">Dừng</button>
+        </div>
+      </div>
+      <form id="addForm">
+        <div style="margin-bottom:6px; position:relative; max-width:100%; box-sizing:border-box">
+          <input id="addBarcode" placeholder="Barcode" required style="width:100%; padding:8px 44px 8px 8px; box-sizing:border-box">
+          <button id="addBarcodeCameraBtn" type="button" title="Quét mã vạch" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:transparent; border:none; cursor:pointer; padding:6px; display:flex; align-items:center; justify-content:center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </button>
+          <div id="err_addBarcode" class="field-error"></div>
+        </div>
+        <div style="margin-bottom:6px">
+          <input id="addName" placeholder="Tên" required>
+          <div id="err_addName" class="field-error"></div>
+        </div>
+        <div style="margin-bottom:6px">
+          <input id="addPrice" placeholder="Giá" inputmode="numeric" pattern="[0-9]*" aria-label="Giá (số nguyên, có thể bỏ trống)" />
+          <div id="err_addPrice" class="field-error"></div>
+        </div>
+        <div style="margin-bottom:6px; position:relative; max-width:100%; box-sizing:border-box">
+          <input id="addImage" placeholder="Ảnh (URL hoặc dataURI)" style="display:block; width:100%; padding:8px 88px 8px 8px; box-sizing:border-box">
+          <div style="position:absolute; right:6px; top:50%; transform:translateY(-50%); display:flex; gap:6px">
+            <button id="addImageCameraBtn" type="button" title="Chụp ảnh" style="background:transparent; border:none; cursor:pointer; padding:6px; display:flex; align-items:center; justify-content:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </button>
+            <button id="addImageUploadBtn" type="button" title="Tải lên ảnh" style="background:transparent; border:none; cursor:pointer; padding:6px; display:flex; align-items:center; justify-content:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a4 4 0 0 0-4-4h-1l-1-2H9L8 11H7a4 4 0 0 0-4 4" />
+                <polyline points="12 12 12 21" />
+                <polyline points="16 17 12 21 8 17" />
+              </svg>
+            </button>
+          </div>
+          <div id="err_addImage" class="field-error"></div>
+        </div>
+        <input id="fileInput" type="file" accept="image/*" style="display:none">
+        <div id="preview" style="margin-top:8px"></div>
+        <input type="hidden" id="editingId">
+        <button class="btn" id="submitBtn">Thêm</button>
+        <button type="button" id="cancelEdit" style="display:none;margin-left:8px">Hủy</button>
+      </form>
+    </div>
+
+  <!-- toast container -->
+  <div id="toastWrap" class="toast-wrap" aria-live="polite" aria-atomic="true"></div>
+
+    <h3>Sản phẩm</h3>
+    <div style="margin-bottom:8px;position:relative;max-width:100%;box-sizing:border-box">
+      <input id="searchInput" placeholder="Tìm theo barcode hoặc tên..." style="width:100%;padding:8px 48px 8px 8px;border:1px solid #eef2f7;border-radius:8px;box-sizing:border-box">
+      <button id="searchScanBtn" type="button" title="Quét mã vạch" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;padding:8px;display:flex;align-items:center;justify-content:center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table id="productsTable" class="products-table">
+        <thead><tr><th>Ảnh</th><th>Barcode</th><th>Tên</th><th>Giá</th><th>Hành động</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <!-- pagination controls (rendered by admin.js) -->
+    <div id="pagination" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px"></div>
+
+    <!-- capture overlay (above all) -->
+    <div id="captureArea" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10000">
+      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:12px; padding:16px; width:90%; max-width:520px; max-height:90vh; overflow:auto; box-shadow:0 24px 48px rgba(0,0,0,0.3)">
+        <h4 style="margin:0 0 12px">Chụp ảnh sản phẩm</h4>
+        <video id="capVideo" autoplay playsinline style="width:100%; height:auto; max-height:60vh; border-radius:8px; background:#000; object-fit:contain; display:block"></video>
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
+          <button id="takePhoto" class="btn">Chụp</button>
+          <button id="stopCapture" class="btn ghost">Đóng</button>
+        </div>
+        <canvas id="capCanvas" style="display:none"></canvas>
+      </div>
+    </div>
+    <!-- barcode scan overlay (above all) -->
+    <div id="scanArea" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10000">
+      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:12px; padding:16px; width:90%; max-width:520px; max-height:90vh; overflow:auto; box-shadow:0 24px 48px rgba(0,0,0,0.3)">
+        <h4 style="margin:0 0 12px">Quét mã vạch để thêm sản phẩm</h4>
+        <video id="scanVideo" autoplay playsinline style="width:100%; height:auto; max-height:60vh; border-radius:8px; background:#000; object-fit:contain; display:block"></video>
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
+          <button id="stopScan" class="btn ghost">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search scan modal -->
+    <div id="searchScanModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999">
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;padding:16px;max-width:480px;width:90%;max-height:90vh;overflow:auto;box-shadow:0 24px 48px rgba(0,0,0,0.3)">
+        <h4 style="margin:0 0 12px">Quét mã vạch để tìm kiếm</h4>
+        <video id="searchScanVideo" autoplay playsinline muted style="width:100%;height:auto;max-height:60vh;border-radius:8px;background:#000;object-fit:contain;display:block"></video>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+          <button id="stopSearchScan" class="btn ghost">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
