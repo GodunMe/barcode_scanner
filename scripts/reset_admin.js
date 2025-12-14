@@ -10,7 +10,7 @@ async function main(){
   }
   const newPass = argv[0];
   const username = argv[1] || process.env.ADMIN_USER || 'admin';
-  const dbPath = path.join(__dirname, '..', 'db.json');
+  const dbPath = path.join(__dirname, 'db.json');
   let db = { products: [], users: [] };
   try{
     if(fs.existsSync(dbPath)){

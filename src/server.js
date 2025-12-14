@@ -226,40 +226,57 @@ app.post('/api/uploads', csrfMiddleware, requireAuth, upload.single('image'), (r
 });
 
 app.get('/api/products', async (req, res) => {
-  const docs = db.getAllProducts();
-  res.json(docs);
+  try {
+    const docs = await db.getAllProducts();
+    res.json(docs);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // get by id (used by admin UI)
 app.get('/api/products/id/:id', async (req, res) => {
-  const id = req.params.id;
-  const doc = db.getProductById(id);
-  if(!doc) return res.status(404).json({ error: 'not_found' });
-  res.json(doc);
+  try {
+    const id = req.params.id;
+    const doc = await db.getProductById(id);
+    if(!doc) return res.status(404).json({ error: 'not_found' });
+    res.json(doc);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // get by barcode (legacy / public lookup)
 app.get('/api/products/:barcode', async (req, res) => {
-  const barcode = req.params.barcode;
-  const doc = db.getProductByBarcode(barcode);
-  if(!doc) return res.status(404).json({ error: 'not_found' });
-  res.json(doc);
+  try {
+    const barcode = req.params.barcode;
+    const doc = await db.getProductByBarcode(barcode);
+    if(!doc) return res.status(404).json({ error: 'not_found' });
+    res.json(doc);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/admin/login', loginLimiter, body('username').trim().escape(), body('password').trim(), async (req, res) => {
-  const { username, password } = req.body;
-  const user = db.getUserByUsername(username);
-  if(!user) {
-    securityLogger.logFailedAuth(req, `User not found: ${username}`);
-    return res.status(401).json({ error: 'invalid' });
+  try {
+    const { username, password } = req.body;
+    const user = await db.getUserByUsername(username);
+    if(!user) {
+      securityLogger.logFailedAuth(req, `User not found: ${username}`);
+      return res.status(401).json({ error: 'invalid' });
+    }
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if(!ok) {
+      securityLogger.logFailedAuth(req, `Wrong password for user: ${username}`);
+      return res.status(401).json({ error: 'invalid' });
+    }
+    req.session.userId = user._id.toString();
+    res.json({ ok: true });
+  } catch (e) {
+    securityLogger.logFailedAuth(req, `Login error: ${e.message}`);
+    res.status(500).json({ error: 'login_error' });
   }
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if(!ok) {
-    securityLogger.logFailedAuth(req, `Wrong password for user: ${username}`);
-    return res.status(401).json({ error: 'invalid' });
-  }
-  req.session.userId = user.id;
-  res.json({ ok: true });
 });
 
 app.post('/admin/logout', (req, res)=>{
@@ -297,9 +314,9 @@ app.post('/api/products', csrfMiddleware, requireAuth,
     }
     try{
       // check unique barcode
-      const existing = db.getProductByBarcode(req.body.barcode);
+      const existing = await db.getProductByBarcode(req.body.barcode);
       if(existing) return res.status(409).json({ error: 'exists' });
-      const p = db.createProduct({ barcode: req.body.barcode, name: req.body.name, price: req.body.price, image: req.body.image });
+      const p = await db.createProduct({ barcode: req.body.barcode, name: req.body.name, price: req.body.price, image: req.body.image });
       res.json(p);
     }catch(e){
       res.status(500).json({ error: e.message });
@@ -329,13 +346,13 @@ app.put('/api/products/:id', csrfMiddleware, requireAuth,
     try{
       // check barcode uniqueness if changed
       if(req.body.barcode){
-        const existing = db.getProductByBarcode(req.body.barcode);
-        if(existing && existing.id !== req.params.id){
+        const existing = await db.getProductByBarcode(req.body.barcode);
+        if(existing && existing._id.toString() !== req.params.id){
           return res.status(409).json({ error: 'barcode_exists' });
         }
         updates.barcode = req.body.barcode;
       }
-      const doc = db.updateProductById(req.params.id, updates);
+      const doc = await db.updateProductById(req.params.id, updates);
       if(!doc) return res.status(404).json({ error: 'not_found' });
       res.json(doc);
     }catch(e){ res.status(500).json({ error: e.message }); }
@@ -346,12 +363,12 @@ app.delete('/api/products/:id', csrfMiddleware, requireAuth, async (req, res)=>{
   try{
     const id = req.params.id;
     // fetch product first to get image path
-    const prod = db.getProductById(id);
+    const prod = await db.getProductById(id);
     if(!prod) return res.status(404).json({ error: 'not_found' });
     const imageField = prod.image;
 
     // delete DB record
-    db.deleteProductById(id);
+    await db.deleteProductById(id);
 
     // attempt to remove uploaded file if it points inside our uploadDir
     try{
@@ -384,3 +401,6 @@ app.listen(PORT, () => {
     console.log('Server listening on', PORT);
   }
 });
+
+// Connect to MongoDB on startup
+db.connectDB();
